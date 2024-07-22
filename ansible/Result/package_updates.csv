@@ -1,0 +1,7 @@
+IP Address,Name,Version,Repository
+10.0.1.251,kernel,5.10.219,amzn2extra-kernel-5.10
+10.0.1.251,kernel-tools,5.10.219,amzn2extra-kernel-5.10
+10.0.1.251,python-jinja2,2.7.2,amzn2-core
+10.0.1.68,kernel,5.10.219,amzn2extra-kernel-5.10
+10.0.1.68,kernel-tools,5.10.219,amzn2extra-kernel-5.10
+10.0.1.68,python-jinja2,2.7.2,amzn2-core

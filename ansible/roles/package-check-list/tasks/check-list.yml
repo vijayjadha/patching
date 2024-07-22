@@ -1,0 +1,86 @@
+---
+# tasks/main.yml
+
+- name: Check for updates (yum)
+  yum:
+    list: updates
+    update_cache: yes
+  register: yum_updates
+  when: ansible_pkg_mgr == 'yum'
+
+- name: Save yum updates to a temporary file on remote server
+  copy:
+    content: |
+      {% for package in yum_updates.results %}
+      {{ ansible_host }},{{ package.name }},{{ package.version }},{{ package.repo }}
+      {% endfor %}
+    dest: "/tmp/yum_updates_{{ inventory_hostname }}.csv"
+  when: ansible_pkg_mgr == 'yum'
+
+- name: Check for updates (apt)
+  apt:
+    update_cache: yes
+  register: apt_updates
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Save apt updates to a temporary file on remote server
+  copy:
+    content: |
+      {% for package in apt_updates.upgradable_packages %}
+      {{ ansible_host }},{{ package.package }},{{ package.current_version }},{{ package.new_version }},{{ package.origin }}
+      {% endfor %}
+    dest: "/tmp/apt_updates_{{ inventory_hostname }}.csv"
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Fetch yum updates file to control server
+  fetch:
+    src: "/tmp/yum_updates_{{ inventory_hostname }}.csv"
+    dest: "/tmp/yum_updates_{{ inventory_hostname }}.csv"
+    flat: yes
+  when: ansible_pkg_mgr == 'yum'
+
+- name: Fetch apt updates file to control server
+  fetch:
+    src: "/tmp/apt_updates_{{ inventory_hostname }}.csv"
+    dest: "/tmp/apt_updates_{{ inventory_hostname }}.csv"
+    flat: yes
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Ensure result directory exists
+  delegate_to: localhost
+  file:
+    path: "/home/ansible/Result"
+    state: directory
+
+- name: Create or truncate the result file if it doesn't exist
+  delegate_to: localhost
+  lineinfile:
+    path: "/home/ansible/Result/package_updates.csv"
+    line: "IP Address,Name,Version,Repository"
+    create: yes
+    insertafter: BOF
+
+- name: Append yum updates to the result file
+  delegate_to: localhost
+  shell: "tail -n +1 /tmp/yum_updates_{{ inventory_hostname }}.csv >> /home/ansible/Result/package_updates.csv"
+  when: ansible_pkg_mgr == 'yum'
+
+- name: Append apt updates to the result file
+  delegate_to: localhost
+  shell: "tail -n +1 /tmp/apt_updates_{{ inventory_hostname }}.csv >> /home/ansible/Result/package_updates.csv"
+  when: ansible_pkg_mgr == 'apt'
+
+- name: Remove duplicates from the result file
+  delegate_to: localhost
+  shell: |
+    (head -n 1 /home/ansible/Result/package_updates.csv && tail -n +2 /home/ansible/Result/package_updates.csv | sort | uniq) > /tmp/package_updates.csv && mv /tmp/package_updates.csv /home/ansible/Result/package_updates.csv
+
+- name: Clean up temporary files on control server
+  delegate_to: localhost
+  file:
+    path: "/tmp/{{ item }}"
+    state: absent
+  with_items:
+    - "yum_updates_{{ inventory_hostname }}.csv"
+    - "apt_updates_{{ inventory_hostname }}.csv"
+

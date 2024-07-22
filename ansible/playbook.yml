@@ -1,0 +1,9 @@
+---
+- name: Patching Linux servers.
+  hosts: Demo
+  become: yes
+  roles: 
+    - package-check-list
+      # - patching
+      # - hold-package
+    
